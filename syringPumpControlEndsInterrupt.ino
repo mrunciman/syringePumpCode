@@ -48,6 +48,9 @@ void setup() {
 void forwardInterrupt() {
   stepCounter = 0;
   stepNumber = 0;
+  for (int i = 0; i < sizeof(stepNumberInput);  ++i ) {
+    stepNumberInput[i] = (char)0;
+  }
   Serial.println("Motor stopped: Forward limit reached");
   digitalWrite(directionPin, true);
   for (unsigned long moveBackB = 0; moveBackB < 160; moveBackB++) {
@@ -60,10 +63,13 @@ void forwardInterrupt() {
 }
 
   //Interrupt Service Call function
-  //Set both step number and the counter used in for loop of stepping function to zero.
+  //Set both step number, counter used for loop of stepping function to zero.
 void backwardInterrupt() {
     stepCounter = 0;
     stepNumber = 0;
+    for (int i = 0; i < sizeof(stepNumberInput);  ++i ) {
+      stepNumberInput[i] = (char)0;
+    }
     Serial.println("Motor stopped: Backward limit reached");
     digitalWrite(directionPin, false);
     for (unsigned long moveBackF = 0; moveBackF < 160; moveBackF++) {
