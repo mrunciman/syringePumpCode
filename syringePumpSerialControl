@@ -1,0 +1,169 @@
+#include <math.h>
+
+#define directionPin 28 // pin D28 on Aduino Mega 2560
+#define stepPin 26 // D26
+#define enablePin 24 // 
+
+//For Linear rail
+char stepNumberDigit = 0;
+byte index = 0; // index of input byte
+char stepNumberInput[7];
+char flushInputBuffer[20];
+bool motorDirection;
+unsigned long stepNumber = 0;
+unsigned long stepCounter = 0;
+
+//Set interrupt pin numbers
+//Possible interrupt pins on Mega: 2, 3, 18, 19, 20, 21
+//First and second (Xmin and Xmax) end stop headers on Ramps Board
+const byte fwdIntrrptPin = 2;
+const byte bwdIntrrptPin = 3;
+volatile bool interruptFlag;;
+
+
+
+void setup() {
+  //Interrupt config.
+  //3k3 Pull-up resistors used, switch connects pin to gnd, so falling edge.
+  pinMode(fwdIntrrptPin, INPUT);
+  attachInterrupt(digitalPinToInterrupt(fwdIntrrptPin), forwardInterrupt, FALLING );
+  pinMode(bwdIntrrptPin, INPUT);
+  attachInterrupt(digitalPinToInterrupt(bwdIntrrptPin), backwardInterrupt, FALLING );
+  interruptFlag = false;
+
+  // Configuration of DRV8825 driver pins
+  pinMode(directionPin, OUTPUT);
+  pinMode(stepPin, OUTPUT);
+  pinMode(enablePin, OUTPUT);
+
+  //Serial configuration
+  Serial.begin(9600);
+  Serial.println("Input number of steps:");
+}
+
+
+
+//Interrupt Service Call function
+//Set both step number and the counter used in for loop of stepping function to zero.
+void forwardInterrupt() {
+  interruptFlag = true;
+  Serial.println("Motor stopped: Forward limit reached");
+  digitalWrite(directionPin, true);
+  for (unsigned long moveBackB = 0; moveBackB < 160; moveBackB++) {
+    //A step is executed when a rising edge is detected on Step motor input
+    digitalWrite(stepPin, HIGH);
+    digitalWrite(stepPin, LOW);
+    delayMicroseconds(50);
+    //Serial.println(moveBackB);
+  }
+}
+
+//Interrupt Service Call function
+//Set both step number, counter used for loop of stepping function to zero.
+void backwardInterrupt() {
+  interruptFlag = true;
+  Serial.println("Motor stopped: Backward limit reached");
+  digitalWrite(directionPin, false);
+  for (unsigned long moveBackF = 0; moveBackF < 160; moveBackF++) {
+    //A step is executed when a rising edge is detected on Step motor input
+    digitalWrite(stepPin, HIGH);
+    digitalWrite(stepPin, LOW);
+    delayMicroseconds(50);
+    //Serial.println(moveBackF);
+  }
+}
+
+
+
+//Function that sends correct number of step pulses to motor driver
+void stepMotor(bool directionMotor, unsigned long numberSteps) {
+  digitalWrite(directionPin, directionMotor);
+  delay(50);
+  if (numberSteps >= 50000) {
+    numberSteps = 50000;
+    //Serial.print(numberSteps);
+  }
+  //Reset step counter before beginning new movement, then step up to number of steps
+  for (stepCounter = 0; stepCounter < numberSteps; stepCounter++) {
+    //A step is executed when a rising edge is detected on Step motor input
+    //Send pulse only if interrupt has not been triggered
+    if (interruptFlag == false) {
+      // Serial.println(interruptFlag);
+      digitalWrite(stepPin, HIGH);
+      digitalWrite(stepPin, LOW);
+      delayMicroseconds(50);
+    }
+    else {
+      interruptFlag = false;
+      break;
+    }
+  }
+  //Reset and set enable (active low) to prevent motor 'singing'
+  digitalWrite(enablePin, true);
+  //delayMicroseconds(50);
+  digitalWrite(enablePin, false);
+}
+
+//Funciton to read input in serial monitor and set the number of
+//steps in stepNumberInput.
+void readSerial(char* stepNumberInput) {
+  while (Serial.available() > 0) {
+    //Allow up to 6 digits, save the rest in an unused variable
+    if (index < 6) {
+      stepNumberDigit = Serial.read();
+      if ((stepNumberDigit >= '0') && (stepNumberDigit <= '9')) {
+        stepNumberInput[index] = stepNumberDigit;
+        //Serial.println(stepNumberInput[index]);
+        index++;
+        //stepNumberInput[index] = '\0';
+      }
+      // Check for negative number
+      else if (stepNumberDigit == 45) {
+        motorDirection = false;
+        //Serial.println("Forward");
+      }
+    }
+    else {
+      flushInputBuffer[index] = Serial.read();
+      index++;
+      //Serial.println( strtoul(flushInputBuffer, NULL, 10));
+    }
+    delay(50);
+  }
+  index = 0;
+}
+
+
+
+void loop() {
+  //Set direction for motor, which is changed if a minus sign is detected
+  //Negative/false moves the stage forwards, away from motor
+  motorDirection = true;
+  // Input some value of steps to move by in Serial Monitor
+  readSerial(stepNumberInput);
+
+  //Mapping from step to 1 revolution = 200 steps
+  //32 microsteps per step, 6400 steps per revolution
+  //Remove jumpers to set step size, screw to set current
+
+  //Check that the Serial input buffer is empty and that step number is not 0,
+  //then convert to unsigned long and call stepping function
+  if ((Serial.available() == 0) && (stepNumberInput[0] != 0)) {
+    stepNumber = strtoul(stepNumberInput, NULL, 10);
+    stepMotor(motorDirection, stepNumber);
+    Serial.print("Moved ");
+    Serial.print(stepNumber);
+    Serial.print(" steps");
+    if (motorDirection == false) {
+      Serial.println(" forwards.");
+    }
+    else {
+      Serial.println(" backwards.");
+    }
+    //Set step number variable to 0 before start of loop.
+    for (int i = 0; i < sizeof(stepNumberInput);  ++i ) {
+      stepNumberInput[i] = (char)0;
+    }
+    interruptFlag = false;
+  }
+}
