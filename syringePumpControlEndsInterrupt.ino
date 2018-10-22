@@ -7,7 +7,7 @@
 //For Linear rail
 char stepNumberDigit = 0;
 byte index = 0; // index of input byte
-char stepNumberInput[6];
+char stepNumberInput[7];
 char flushInputBuffer[20];
 bool motorDirection;
 unsigned long stepNumber = 0;
@@ -18,7 +18,7 @@ unsigned long stepCounter = 0;
 //First and second (Xmin and Xmax) end stop headers on Ramps Board
 const byte fwdIntrrptPin = 2;
 const byte bwdIntrrptPin = 3;
-volatile bool interruptFlag;
+volatile bool interruptFlag;;
 
 
 
@@ -29,6 +29,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(fwdIntrrptPin), forwardInterrupt, FALLING );
   pinMode(bwdIntrrptPin, INPUT);
   attachInterrupt(digitalPinToInterrupt(bwdIntrrptPin), backwardInterrupt, FALLING );
+  interruptFlag = false;
 
   // Configuration of DRV8825 driver pins
   pinMode(directionPin, OUTPUT);
@@ -86,12 +87,13 @@ void stepMotor(bool directionMotor, unsigned long numberSteps) {
   for (stepCounter = 0; stepCounter < numberSteps; stepCounter++) {
     //A step is executed when a rising edge is detected on Step motor input
     //Send pulse only if interrupt has not been triggered
-    if(interruptFlag = false){
+    if (interruptFlag == false) {
+      // Serial.println(interruptFlag);
       digitalWrite(stepPin, HIGH);
       digitalWrite(stepPin, LOW);
       delayMicroseconds(50);
     }
-    else{
+    else {
       interruptFlag = false;
       break;
     }
@@ -106,8 +108,8 @@ void stepMotor(bool directionMotor, unsigned long numberSteps) {
 //steps in stepNumberInput.
 void readSerial(char* stepNumberInput) {
   while (Serial.available() > 0) {
-    //Allow up to 5 digits, save the rest in an unused variable
-    if (index < 5) {
+    //Allow up to 6 digits, save the rest in an unused variable
+    if (index < 6) {
       stepNumberDigit = Serial.read();
       if ((stepNumberDigit >= '0') && (stepNumberDigit <= '9')) {
         stepNumberInput[index] = stepNumberDigit;
@@ -162,5 +164,6 @@ void loop() {
     for (int i = 0; i < sizeof(stepNumberInput);  ++i ) {
       stepNumberInput[i] = (char)0;
     }
+    interruptFlag = false;
   }
 }
