@@ -1,8 +1,13 @@
 #include <math.h>
+#include <Wire.h>
+//Sensor library - https://github.com/sparkfun/MS5803-14BA_Breakout/
+#include <SparkFun_MS5803_I2C.h>
 
 #define directionPin 28 // pin D28 on Aduino Mega 2560
 #define stepPin 26 // D26
-#define enablePin 24 // 
+#define enablePin 24 //
+//SDA pin = 20
+//SCL pin = 21
 
 //For Linear rail
 char stepNumberDigit = 0;
@@ -19,6 +24,12 @@ unsigned long stepCounter = 0;
 const byte fwdIntrrptPin = 2;
 const byte bwdIntrrptPin = 3;
 volatile bool interruptFlag;;
+
+//Instantiate sensor
+MS5803 sensor(ADDRESS_LOW);//CSB pin pulled low, so address high
+//Create variables to store results
+//float tempCelsius;
+double pressureAbs;
 
 
 
@@ -37,8 +48,13 @@ void setup() {
   pinMode(enablePin, OUTPUT);
 
   //Serial configuration
+  Wire.begin();
   Serial.begin(9600);
   Serial.println("Input number of steps:");
+
+  //Sensor setup - https://github.com/sparkfun/MS5803-14BA_Breakout/
+  sensor.reset();
+  sensor.begin();
 }
 
 
@@ -79,8 +95,8 @@ void backwardInterrupt() {
 void stepMotor(bool directionMotor, unsigned long numberSteps) {
   digitalWrite(directionPin, directionMotor);
   delay(50);
-  if (numberSteps >= 50000) {
-    numberSteps = 50000;
+  if (numberSteps > 95000) {
+    numberSteps = 95000;
     //Serial.print(numberSteps);
   }
   //Reset step counter before beginning new movement, then step up to number of steps
@@ -141,6 +157,12 @@ void loop() {
   motorDirection = true;
   // Input some value of steps to move by in Serial Monitor
   readSerial(stepNumberInput);
+
+  //Print pressure data with highest level of precision
+  pressureAbs = sensor.getPressure(ADC_4096);
+  Serial.print("Absolute pressure = ");
+  Serial.print(pressureAbs);
+  Serial.println(" mbar");
 
   //Mapping from step to 1 revolution = 200 steps
   //32 microsteps per step, 6400 steps per revolution
