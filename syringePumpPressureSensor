@@ -25,10 +25,12 @@ const byte fwdIntrrptPin = 2;
 const byte bwdIntrrptPin = 3;
 volatile bool interruptFlag;;
 
-MS5803 sensor(ADDRESS_HIGH);//CSB pin pulled low, so address high
+//Instantiate sensor
+MS5803 sensor(ADDRESS_LOW);//CSB pin pulled low, so address high
 //Create variables to store results
 //float tempCelsius;
 double pressureAbs;
+
 
 
 void setup() {
@@ -49,11 +51,12 @@ void setup() {
   Wire.begin();
   Serial.begin(9600);
   Serial.println("Input number of steps:");
-  
+
   //Sensor setup - https://github.com/sparkfun/MS5803-14BA_Breakout/
   sensor.reset();
   sensor.begin();
 }
+
 
 
 //Interrupt Service Call function
@@ -154,11 +157,12 @@ void loop() {
   motorDirection = true;
   // Input some value of steps to move by in Serial Monitor
   readSerial(stepNumberInput);
-  
+
   //Print pressure data with highest level of precision
   pressureAbs = sensor.getPressure(ADC_4096);
-  Serial.print("Absolute pressure in mbar= ");
-  Serial.println(pressureAbs);
+  Serial.print("Absolute pressure = ");
+  Serial.print(pressureAbs);
+  Serial.println(" mbar");
 
   //Mapping from step to 1 revolution = 200 steps
   //32 microsteps per step, 6400 steps per revolution
